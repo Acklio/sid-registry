@@ -1,0 +1,45 @@
+name: Validate yangs and generate sids
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  sid-testing:
+    name: sid-testing
+    runs-on: ubuntu-20.04
+    container:
+      image: ghcr.io/acklio/registry-utils:v0
+    env:
+      TARGET_BRANCH_NAME: "main"
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Check the sid syntax
+        run: make -f /opt/acklio/Makefile syntaxcheck
+      - name: Check the sid budget
+        run: make -f /opt/acklio/Makefile changed_org_usage
+  sid-generation:
+    name: sid-generation
+    runs-on: ubuntu-20.04
+    needs: sid-testing
+    container:
+      image: ghcr.io/acklio/registry-utils:v0
+    env:
+      TARGET_BRANCH_NAME: "main"
+    steps:
+      - name: Setup git
+        run: |
+          git config --global user.email "< >"
+          git config --global user.name "acklio-registry"
+          mkdir ~/.ssh
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Generate Sids
+        run: make -f /opt/acklio/Makefile sids_and_push
